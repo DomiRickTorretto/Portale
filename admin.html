@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione — Torre & Partners</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="config.js"></script>
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="topbar-left">
+                <strong>Torre & Partners</strong>
+                <span class="topbar-sep">|</span>
+                <span>Pannello di Gestione</span>
+            </div>
+            <div class="topbar-right">
+                <span class="topbar-user">Admin</span>
+                <a href="dashboard.html" class="btn btn-small btn-admin">Vista Utente</a>
+                <a href="#" id="btnLogout" class="btn btn-small btn-logout">Esci</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content admin-page">
+        <div id="messaggio" class="alert alert-success" style="display:none;"></div>
+        <div id="errore" class="alert alert-error" style="display:none;"></div>
+
+        <div class="admin-grid">
+            <div class="admin-col">
+                <div class="admin-card">
+                    <h3>&#10133; Nuovo Condomino</h3>
+                    <form id="formUtente" class="admin-form">
+                        <div class="form-group">
+                            <label>Username (per il login)</label>
+                            <input type="text" id="nuovoUsername" placeholder="es. mario.rossi" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="text" id="nuovaPassword" placeholder="Scegli una password" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Nome e Cognome</label>
+                            <input type="text" id="nuovoNome" placeholder="es. Mario Rossi" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Condominio</label>
+                            <input type="text" id="nuovoCondominio" placeholder="es. La Castellana" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Crea Utente</button>
+                    </form>
+                </div>
+
+                <div class="admin-card">
+                    <h3>&#128273; Cambia Password Admin</h3>
+                    <form id="formPassword" class="admin-form">
+                        <div class="form-group">
+                            <label>Nuova password</label>
+                            <input type="text" id="adminPassword" placeholder="Inserisci nuova password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Aggiorna Password</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="admin-col">
+                <div class="admin-card">
+                    <h3>&#128196; Carica Documento</h3>
+                    <form id="formCarica" class="admin-form">
+                        <div class="form-group">
+                            <label>Condomino destinatario</label>
+                            <select id="selectUtente" required>
+                                <option value="">&mdash; Seleziona &mdash;</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>File PDF</label>
+                            <input type="file" id="fileInput" accept=".pdf" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Descrizione (opzionale)</label>
+                            <input type="text" id="descrizioneFile" placeholder="es. Bilancio 2024, Verbale assemblea...">
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="btnCarica">Carica PDF</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-card users-table-card">
+            <h3>&#128203; Condomini registrati</h3>
+            <div class="table-wrapper">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Condomino</th>
+                            <th>Condominio</th>
+                            <th>Username</th>
+                            <th>Documenti</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabellaUtenti"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="sezioneDocumentiUtente" style="display:none;">
+            <div class="admin-card">
+                <h3 id="titoloDocumentiUtente"></h3>
+                <div class="table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>File</th>
+                                <th>Descrizione</th>
+                                <th>Caricato il</th>
+                                <th>Dimensione</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabellaDocumentiUtente"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    const utente = JSON.parse(sessionStorage.getItem('utente'));
+    if (!utente || utente.ruolo !== 'admin') window.location.href = 'index.html';
+
+    document.getElementById('btnLogout').addEventListener('click', function(e) {
+        e.preventDefault();
+        sessionStorage.removeItem('utente');
+        window.location.href = 'index.html';
+    });
+
+    function mostraMessaggio(msg) {
+        const div = document.getElementById('messaggio');
+        div.textContent = msg;
+        div.style.display = 'block';
+        setTimeout(() => div.style.display = 'none', 5000);
+    }
+
+    function mostraErrore(msg) {
+        const div = document.getElementById('errore');
+        div.textContent = msg;
+        div.style.display = 'block';
+        setTimeout(() => div.style.display = 'none', 5000);
+    }
+
+    // === CREA UTENTE ===
+    document.getElementById('formUtente').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const username = document.getElementById('nuovoUsername').value.trim();
+        const password = document.getElementById('nuovaPassword').value;
+        const nome = document.getElementById('nuovoNome').value.trim();
+        const condominio = document.getElementById('nuovoCondominio').value.trim();
+
+        if (!username || !password || !nome || !condominio) {
+            mostraErrore('Compila tutti i campi.');
+            return;
+        }
+
+        const { error } = await supabaseInsert('utenti', {
+            username: username,
+            password: password,
+            nome_condomino: nome,
+            nome_condominio: condominio,
+            ruolo: 'utente'
+        });
+
+        if (error) {
+            if (error.code === '23505') mostraErrore('Username gi&agrave; esistente.');
+            else mostraErrore('Errore: ' + (error.message || JSON.stringify(error)));
+            return;
+        }
+
+        mostraMessaggio('Utente "' + nome + '" creato con successo!');
+        document.getElementById('formUtente').reset();
+        caricaUtenti();
+    });
+
+    // === CAMBIA PASSWORD ADMIN ===
+    document.getElementById('formPassword').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const nuovaPassword = document.getElementById('adminPassword').value;
+        
+        if (nuovaPassword.length < 4) {
+            mostraErrore('La password deve essere almeno 4 caratteri.');
+            return;
+        }
+
+        const { error } = await supabaseUpdate('utenti', { password: nuovaPassword }, 'id', utente.id);
+        if (error) {
+            mostraErrore('Errore: ' + JSON.stringify(error));
+            return;
+        }
+
+        mostraMessaggio('Password admin cambiata con successo!');
+        document.getElementById('formPassword').reset();
+    });
+
+    // === CARICA DOCUMENTO ===
+    document.getElementById('formCarica').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const utenteId = document.getElementById('selectUtente').value;
+        const descrizione = document.getElementById('descrizioneFile').value.trim();
+        const fileInput = document.getElementById('fileInput');
+        const btn = document.getElementById('btnCarica');
+
+        if (!utenteId || !fileInput.files[0]) {
+            mostraErrore('Seleziona un utente e un file.');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        if (file.type !== 'application/pdf') {
+            mostraErrore('Solo file PDF sono accettati.');
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            mostraErrore('Il file &egrave; troppo grande (max 10 MB).');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Caricamento...';
+
+        const nomeUnivoco = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        
+        const { error: uploadError } = await supabaseUpload(CONFIG.BUCKET_NAME, nomeUnivoco, file);
+
+        if (uploadError) {
+            mostraErrore('Errore upload: ' + uploadError);
+            btn.disabled = false;
+            btn.textContent = 'Carica PDF';
+            return;
+        }
+
+        const { error: dbError } = await supabaseInsert('documenti', {
+            utente_id: parseInt(utenteId),
+            nome_file: nomeUnivoco,
+            nome_originale: file.name,
+            descrizione: descrizione || null,
+            dimensione: file.size
+        });
+
+        if (dbError) {
+            mostraErrore('Errore database.');
+            btn.disabled = false;
+            btn.textContent = 'Carica PDF';
+            return;
+        }
+
+        mostraMessaggio('Documento caricato con successo!');
+        document.getElementById('formCarica').reset();
+        caricaUtenti();
+
+        btn.disabled = false;
+        btn.textContent = 'Carica PDF';
+    });
+
+    // === CARICA UTENTI ===
+    async function caricaUtenti() {
+        const { data, error } = await supabaseQuery('utenti', { order: 'nome_condominio.asc,nome_condomino.asc' });
+        if (error) return;
+
+        const tbody = document.getElementById('tabellaUtenti');
+        const select = document.getElementById('selectUtente');
+
+        let html = '';
+        let options = '<option value="">&mdash; Seleziona &mdash;</option>';
+
+        for (const u of data) {
+            const numDoc = await supabaseCount('documenti', 'utente_id', u.id);
+
+            html += '<tr>';
+            html += '<td><strong>' + u.nome_condomino + '</strong></td>';
+            html += '<td>' + u.nome_condominio + '</td>';
+            html += '<td><code>' + u.username + '</code></td>';
+            html += '<td><a href="#" class="link-doc-count" data-id="' + u.id + '" data-nome="' + u.nome_condomino + '">' + numDoc + ' documenti</a></td>';
+            html += '<td>';
+            if (u.ruolo !== 'admin') {
+                html += '<button class="btn btn-small btn-danger" onclick="eliminaUtente(' + u.id + ')">Elimina</button>';
+            } else {
+                html += '<span class="badge-admin">Admin</span>';
+            }
+            html += '</td></tr>';
+
+            options += '<option value="' + u.id + '">' + u.nome_condomino + ' &mdash; ' + u.nome_condominio + '</option>';
+        }
+
+        tbody.innerHTML = html;
+        select.innerHTML = options;
+
+        document.querySelectorAll('.link-doc-count').forEach(el => {
+            el.addEventListener('click', function(e) {
+                e.preventDefault();
+                caricaDocumentiUtente(parseInt(this.dataset.id), this.dataset.nome);
+            });
+        });
+    }
+
+    // === ELIMINA UTENTE ===
+    async function eliminaUtente(id) {
+        if (!confirm('Eliminare questo utente e tutti i suoi documenti?')) return;
+
+        const { data: docs } = await supabaseQuery('documenti', { filtri: { utente_id: id } });
+        if (docs && docs.length > 0) {
+            for (const doc of docs) {
+                await supabaseDeleteFile(CONFIG.BUCKET_NAME, doc.nome_file);
+            }
+        }
+
+        await supabaseDelete('documenti', 'utente_id', id);
+        await supabaseDelete('utenti', 'id', id);
+
+        mostraMessaggio('Utente eliminato.');
+        caricaUtenti();
+    }
+
+    // === DOCUMENTI DI UN UTENTE ===
+    async function caricaDocumentiUtente(id, nome) {
+        document.getElementById('sezioneDocumentiUtente').style.display = 'block';
+        document.getElementById('titoloDocumentiUtente').textContent = 'Documenti di ' + nome;
+
+        const { data, error } = await supabaseQuery('documenti', {
+            filtri: { utente_id: id },
+            order: 'created_at.desc'
+        });
+
+        const tbody = document.getElementById('tabellaDocumentiUtente');
+        
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#666;">Nessun documento.</td></tr>';
+            return;
+        }
+
+        let html = '';
+        for (const doc of data) {
+            const urlPub = supabasePublicUrl(CONFIG.BUCKET_NAME, doc.nome_file);
+            html += '<tr>';
+            html += '<td>' + doc.nome_originale + '</td>';
+            html += '<td>' + (doc.descrizione || '-') + '</td>';
+            html += '<td>' + new Date(doc.created_at).toLocaleDateString('it-IT') + '</td>';
+            html += '<td>' + formattaDimensione(doc.dimensione) + '</td>';
+            html += '<td>';
+            html += '<a href="' + urlPub + '" target="_blank" class="btn btn-small" download>Scarica</a> ';
+            html += '<button class="btn btn-small btn-danger" onclick="eliminaDocumento(' + doc.id + ')">Elimina</button>';
+            html += '</td></tr>';
+        }
+
+        tbody.innerHTML = html;
+    }
+
+    // === ELIMINA DOCUMENTO ===
+    async function eliminaDocumento(id) {
+        if (!confirm('Eliminare questo documento?')) return;
+
+        const { data: doc } = await supabaseQuery('documenti', { filtri: { id }, single: true });
+        if (doc) {
+            await supabaseDeleteFile(CONFIG.BUCKET_NAME, doc.nome_file);
+            await supabaseDelete('documenti', 'id', id);
+        }
+
+        mostraMessaggio('Documento eliminato.');
+        caricaUtenti();
+    }
+
+    function formattaDimensione(bytes) {
+        if (!bytes) return '';
+        if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+        if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return bytes + ' B';
+    }
+
+    caricaUtenti();
+    </script>
+</body>
+</html>
